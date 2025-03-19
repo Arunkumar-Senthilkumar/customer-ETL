@@ -1,0 +1,1317 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "customer-360-ADF"
+		},
+		"ls_sqldatabase_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'ls_sqldatabase'"
+		},
+		"ls_sqlserver_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'ls_sqlserver'"
+		},
+		"ls_synapse_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'ls_synapse'"
+		},
+		"ls_backenddataadls_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://backenddataadls.dfs.core.windows.net/"
+		},
+		"ls_backenddataadls_properties_typeProperties_tenant": {
+			"type": "string",
+			"defaultValue": "ff05faeb-f1fd-4af8-9f9f-5541837df902"
+		},
+		"ls_backenddataadls_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "ca2df203-87d1-473d-aad5-0f59b60dbf81"
+		},
+		"ls_keyvault_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://customer-360-key-vault.vault.azure.net/"
+		},
+		"ls_sqldatabase_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "customer-360.database.windows.net"
+		},
+		"ls_sqldatabase_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "customer_db_golden"
+		},
+		"ls_sqldatabase_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "arun"
+		},
+		"ls_sqlserver_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "customer-360.database.windows.net"
+		},
+		"ls_sqlserver_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "customer_db_golden"
+		},
+		"ls_sqlserver_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "arun"
+		},
+		"ls_synapse_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "customer-360-synapse.sql.azuresynapse.net"
+		},
+		"ls_synapse_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "cus_db_curated"
+		},
+		"ls_synapse_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "arun"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/Practice')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get Metadata1",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "ds_raw1",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "DelimitedTextReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get Metadata1').output.childItems",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Lookup1",
+									"type": "Lookup",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlDWSource",
+											"sqlReaderQuery": {
+												"value": "SELECT TargetTable FROM FileTableMapping WHERE FileName = '@{item().name}'\n",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"dataset": {
+											"referenceName": "ds_lookup_table1",
+											"type": "DatasetReference",
+											"parameters": {}
+										}
+									}
+								},
+								{
+									"name": "Copy data1",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "Get Metadata2",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										},
+										{
+											"activity": "Lookup2",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "DelimitedTextSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"wildcardFileName": {
+													"value": "@item().name",
+													"type": "Expression"
+												},
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "DelimitedTextReadSettings"
+											}
+										},
+										"sink": {
+											"type": "SqlDWSink",
+											"allowCopyCommand": true,
+											"copyCommandSettings": {}
+										},
+										"enableStaging": false,
+										"translator": {
+											"value": "{\n  \"source\": \"@{activity('Get Metadata2').output.structure[0].name}\",\n  \"target\": \"@{activity('Lookup2').output.value[0].COLUMN_NAME}\"\n}\n",
+											"type": "Expression"
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "ds_raw1",
+											"type": "DatasetReference",
+											"parameters": {}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "ds_cus_curated1",
+											"type": "DatasetReference",
+											"parameters": {
+												"TableName": {
+													"value": "@activity('Lookup1').output.firstRow.TargetTable",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Get Metadata2",
+									"type": "GetMetadata",
+									"dependsOn": [
+										{
+											"activity": "Lookup1",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "ds_raw_structure1",
+											"type": "DatasetReference",
+											"parameters": {
+												"FileName": {
+													"value": "@item().name",
+													"type": "Expression"
+												}
+											}
+										},
+										"fieldList": [
+											"structure"
+										],
+										"storeSettings": {
+											"type": "AzureBlobFSReadSettings",
+											"recursive": true,
+											"enablePartitionDiscovery": false
+										},
+										"formatSettings": {
+											"type": "DelimitedTextReadSettings"
+										}
+									}
+								},
+								{
+									"name": "Lookup2",
+									"type": "Lookup",
+									"dependsOn": [
+										{
+											"activity": "Lookup1",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlDWSource",
+											"sqlReaderQuery": {
+												"value": "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS \nWHERE TABLE_NAME = '@{activity('Lookup1').output.firstRow.TargetTable}'\n",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"dataset": {
+											"referenceName": "ds_cus_curated1",
+											"type": "DatasetReference",
+											"parameters": {
+												"TableName": {
+													"value": "@{activity('Lookup1').output.firstRow.TargetTable}",
+													"type": "Expression"
+												}
+											}
+										},
+										"firstRowOnly": false
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-03-18T01:02:50Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_raw1')]",
+				"[concat(variables('factoryId'), '/datasets/ds_lookup_table1')]",
+				"[concat(variables('factoryId'), '/datasets/ds_cus_curated1')]",
+				"[concat(variables('factoryId'), '/datasets/ds_raw_structure1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pipeline1')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data Cleaning",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[datacleaning_act]"
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_synapse",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "AverageOrderValue",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Data Cleaning",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlDWSource",
+								"sqlReaderQuery": "-- Table 1: Average Order Value (AOV)\nSELECT \n    p.ProductID,\n    p.Name AS ProductName,\n    p.Category AS ProductCategory,\n    s.Location AS StoreLocation,\n    SUM(ot.Amount) / COUNT(ot.OrderID) AS AverageOrderValue\nFROM \n    OnlineTransactions ot\nJOIN \n    Products p ON ot.ProductID = p.ProductID\nLEFT JOIN\n    InStoreTransactions ist ON ot.CustomerID = ist.CustomerID \nLEFT JOIN\n    Stores s ON ist.StoreID = s.StoreID \nGROUP BY \n    p.ProductID, p.Name, p.Category, s.Location;",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"writeBehavior": "upsert",
+								"upsertSettings": {
+									"useTempDB": true,
+									"keys": [
+										"ProductID"
+									]
+								},
+								"sqlWriterUseTableLock": false,
+								"disableMetricsCollection": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "ProductID",
+											"type": "Int32",
+											"physicalType": "int"
+										},
+										"sink": {
+											"name": "ProductID",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "ProductName",
+											"type": "String",
+											"physicalType": "varchar"
+										},
+										"sink": {
+											"name": "ProductName",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "ProductCategory",
+											"type": "String",
+											"physicalType": "varchar"
+										},
+										"sink": {
+											"name": "ProductCategory",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "StoreLocation",
+											"type": "String",
+											"physicalType": "varchar"
+										},
+										"sink": {
+											"name": "StoreLocation",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "AverageOrderValue",
+											"type": "Decimal",
+											"physicalType": "decimal",
+											"scale": 6,
+											"precision": 38
+										},
+										"sink": {
+											"name": "AverageOrderValue",
+											"type": "Decimal",
+											"physicalType": "decimal",
+											"scale": 2,
+											"precision": 10
+										}
+									}
+								],
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_cus_db_curated",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_AverageOrderValue",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					},
+					{
+						"name": "CustomerSegmentation",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "AverageOrderValue",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlDWSource",
+								"sqlReaderQuery": "WITH CustomerSpend AS (\n    SELECT \n        c.CustomerID,\n        SUM(ot.Amount) AS TotalSpend,\n        COUNT(DISTINCT ot.OrderID) AS PurchaseFrequency,\n        la.TierLevel\n    FROM \n        Customers c\n    JOIN \n        OnlineTransactions ot ON c.CustomerID = ot.CustomerID\n    LEFT JOIN \n        LoyaltyAccounts la ON c.CustomerID = la.CustomerID\n    GROUP BY \n        c.CustomerID, la.TierLevel\n),\nCustomerNTile AS (\n    SELECT \n        cs.CustomerID,\n        cs.TotalSpend,\n        cs.PurchaseFrequency,\n        cs.TierLevel,\n        -- Create 10 percentiles for TotalSpend\n        NTILE(10) OVER (ORDER BY cs.TotalSpend DESC) AS SpendQuartile\n    FROM \n        CustomerSpend cs\n)\nSELECT \n    CustomerID,\n    CASE \n        -- High-Value Customers: Top 10% spenders\n        WHEN SpendQuartile = 1 THEN 'High-Value Customer' \n        -- One-Time Buyers: Only one purchase\n        WHEN PurchaseFrequency = 1 THEN 'One-Time Buyer'\n        -- Loyalty Champions: Customers in 'Champion' tier\n        WHEN TierLevel = 'Champion' THEN 'Loyalty Champion'\n        -- Others\n        ELSE 'Other'\n    END AS CustomerSegment\nFROM \n    CustomerNTile;",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"writeBehavior": "upsert",
+								"upsertSettings": {
+									"useTempDB": true,
+									"keys": [
+										"CustomerID"
+									]
+								},
+								"sqlWriterUseTableLock": false,
+								"disableMetricsCollection": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "CustomerID",
+											"type": "Int32",
+											"physicalType": "int"
+										},
+										"sink": {
+											"name": "CustomerID",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerSegment",
+											"type": "String",
+											"physicalType": "varchar"
+										},
+										"sink": {
+											"name": "CustomerSegment",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									}
+								],
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_cus_db_curated",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_CustomerSegmentation",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					},
+					{
+						"name": "PeakDaysAndTimes",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "CustomerSegmentation",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlDWSource",
+								"sqlReaderQuery": "SELECT\n    DayOfWeek,\n    HourOfDay,\n    SUM(CASE WHEN TransactionType = 'Online' THEN TotalTransactions ELSE 0 END) AS TotalOnlineTransactions,\n    SUM(CASE WHEN TransactionType = 'InStore' THEN TotalTransactions ELSE 0 END) AS TotalInStoreTransactions\nFROM (\n    -- Online Transactions\n    SELECT\n        DATEPART(WEEKDAY, ot.DateTime) AS DayOfWeek,  -- Numeric representation of the day\n        DATEPART(HOUR, ot.DateTime) AS HourOfDay,\n        COUNT(ot.OrderID) AS TotalTransactions,\n        'Online' AS TransactionType\n    FROM \n        OnlineTransactions ot\n    GROUP BY\n        DATEPART(WEEKDAY, ot.DateTime),\n        DATEPART(HOUR, ot.DateTime)\n    \n    UNION ALL\n    \n    -- In-Store Transactions\n    SELECT\n        DATEPART(WEEKDAY, ist.DateTime) AS DayOfWeek,  -- Numeric representation of the day\n        DATEPART(HOUR, ist.DateTime) AS HourOfDay,\n        COUNT(ist.TransactionID) AS TotalTransactions,\n        'InStore' AS TransactionType\n    FROM \n        InStoreTransactions ist\n    GROUP BY\n        DATEPART(WEEKDAY, ist.DateTime),\n        DATEPART(HOUR, ist.DateTime)\n) AS CombinedTransactions\nGROUP BY\n    DayOfWeek, HourOfDay\nORDER BY\n    DayOfWeek,  -- Order by the numeric day of the week (1 for Monday, 7 for Sunday)\n    HourOfDay;",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"writeBehavior": "insert",
+								"sqlWriterUseTableLock": false,
+								"disableMetricsCollection": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "DayOfWeek",
+											"type": "String",
+											"physicalType": "nvarchar"
+										},
+										"sink": {
+											"name": "DayOfWeek",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "HourOfDay",
+											"type": "Int32",
+											"physicalType": "int"
+										},
+										"sink": {
+											"name": "HourOfDay",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "TotalOnlineTransactions",
+											"type": "Int32",
+											"physicalType": "int"
+										},
+										"sink": {
+											"name": "TotalOnlineOrders",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "TotalInStoreTransactions",
+											"type": "Int32",
+											"physicalType": "int"
+										},
+										"sink": {
+											"name": "TotalInStoreTransactions",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									}
+								],
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_cus_db_curated",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_PeakDaysAndTimes",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					},
+					{
+						"name": "AgentInteractionsAndResolutionRates",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "PeakDaysAndTimes",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlDWSource",
+								"sqlReaderQuery": "SELECT \n    ag.AgentID,\n    ag.Name AS AgentName,\n    COUNT(csi.InteractionID) AS TotalInteractions,\n    SUM(CASE WHEN csi.ResolutionStatus = 'Resolved' THEN 1 ELSE 0 END) * 1.0 / COUNT(csi.InteractionID) AS ResolutionSuccessRate\nFROM \n    Agents ag\nJOIN \n    CustomerServiceInteractions csi ON ag.AgentID = csi.AgentID\nGROUP BY \n    ag.AgentID, ag.Name;",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"writeBehavior": "upsert",
+								"upsertSettings": {
+									"useTempDB": true,
+									"keys": [
+										"AgentID"
+									]
+								},
+								"sqlWriterUseTableLock": false,
+								"disableMetricsCollection": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "AgentID",
+											"type": "Int32",
+											"physicalType": "int"
+										},
+										"sink": {
+											"name": "AgentID",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "AgentName",
+											"type": "String",
+											"physicalType": "varchar"
+										},
+										"sink": {
+											"name": "AgentName",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "TotalInteractions",
+											"type": "Int32",
+											"physicalType": "int"
+										},
+										"sink": {
+											"name": "TotalInteractions",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "ResolutionSuccessRate",
+											"type": "Decimal",
+											"physicalType": "decimal",
+											"scale": 12,
+											"precision": 24
+										},
+										"sink": {
+											"name": "ResolutionSuccessRate",
+											"type": "Decimal",
+											"physicalType": "decimal",
+											"scale": 2,
+											"precision": 5
+										}
+									}
+								],
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_cus_db_curated",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_AgentInteractionsAndResolutionRates",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-03-19T01:39:47Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_synapse')]",
+				"[concat(variables('factoryId'), '/datasets/ds_cus_db_curated')]",
+				"[concat(variables('factoryId'), '/datasets/ds_AverageOrderValue')]",
+				"[concat(variables('factoryId'), '/datasets/ds_CustomerSegmentation')]",
+				"[concat(variables('factoryId'), '/datasets/ds_PeakDaysAndTimes')]",
+				"[concat(variables('factoryId'), '/datasets/ds_AgentInteractionsAndResolutionRates')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_AgentInteractionsAndResolutionRates')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_sqldatabase",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "AgentID",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "AgentName",
+						"type": "varchar"
+					},
+					{
+						"name": "TotalInteractions",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "ResolutionSuccessRate",
+						"type": "decimal",
+						"precision": 5,
+						"scale": 2
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "AgentInteractionsAndResolutionRates"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_sqldatabase')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_AverageOrderValue')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_sqldatabase",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "ProductID",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "ProductName",
+						"type": "varchar"
+					},
+					{
+						"name": "ProductCategory",
+						"type": "varchar"
+					},
+					{
+						"name": "StoreLocation",
+						"type": "varchar"
+					},
+					{
+						"name": "AverageOrderValue",
+						"type": "decimal",
+						"precision": 10,
+						"scale": 2
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "AverageOrderValue"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_sqldatabase')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_CustomerSegmentation')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_sqldatabase",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "CustomerID",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "CustomerSegment",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "CustomerSegmentation"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_sqldatabase')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_PeakDaysAndTimes')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_sqldatabase",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "DayOfWeek",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "HourOfDay",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "TotalOnlineOrders",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "TotalInStoreTransactions",
+						"type": "int",
+						"precision": 10
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "PeakDaysAndTimes"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_sqldatabase')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_cus_curated1')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_synapse",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"TableName": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "practice"
+				},
+				"annotations": [],
+				"type": "AzureSqlDWTable",
+				"schema": [],
+				"typeProperties": {
+					"table": {
+						"value": "@dataset().TableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_synapse')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_cus_db_curated')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_synapse",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlDWTable",
+				"schema": [],
+				"typeProperties": {}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_synapse')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_lookup_table1')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_synapse",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "practice"
+				},
+				"annotations": [],
+				"type": "AzureSqlDWTable",
+				"schema": [
+					{
+						"name": "FileName",
+						"type": "nvarchar"
+					},
+					{
+						"name": "TargetTable",
+						"type": "nvarchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "FileTableMapping"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_synapse')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_raw')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_backenddataadls",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileSystem": "raw"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\"",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "AgentID",
+						"type": "String"
+					},
+					{
+						"name": "Name",
+						"type": "String"
+					},
+					{
+						"name": "Department",
+						"type": "String"
+					},
+					{
+						"name": "Shift",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_backenddataadls')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_raw1')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_backenddataadls",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "practice"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileSystem": "raw"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\"",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "AgentID",
+						"type": "String"
+					},
+					{
+						"name": "Name",
+						"type": "String"
+					},
+					{
+						"name": "Department",
+						"type": "String"
+					},
+					{
+						"name": "Shift",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_backenddataadls')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_raw_structure1')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_backenddataadls",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FileName": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "practice"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"fileSystem": "raw"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\"",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "AgentID",
+						"type": "String"
+					},
+					{
+						"name": "Name",
+						"type": "String"
+					},
+					{
+						"name": "Department",
+						"type": "String"
+					},
+					{
+						"name": "Shift",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_backenddataadls')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_backenddataadls')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('ls_backenddataadls_properties_typeProperties_url')]",
+					"tenant": "[parameters('ls_backenddataadls_properties_typeProperties_tenant')]",
+					"servicePrincipalId": "[parameters('ls_backenddataadls_properties_typeProperties_servicePrincipalId')]",
+					"servicePrincipalCredentialType": "ServicePrincipalKey",
+					"servicePrincipalCredential": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "ls_keyvault",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "cus-360-sp"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_keyvault')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_keyvault')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('ls_keyvault_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_sqldatabase')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"server": "[parameters('ls_sqldatabase_properties_typeProperties_server')]",
+					"database": "[parameters('ls_sqldatabase_properties_typeProperties_database')]",
+					"encrypt": "mandatory",
+					"trustServerCertificate": false,
+					"authenticationType": "SQL",
+					"userName": "[parameters('ls_sqldatabase_properties_typeProperties_userName')]",
+					"password": {
+						"type": "SecureString",
+						"value": "[parameters('ls_sqldatabase_password')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_sqlserver')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "SqlServer",
+				"typeProperties": {
+					"server": "[parameters('ls_sqlserver_properties_typeProperties_server')]",
+					"database": "[parameters('ls_sqlserver_properties_typeProperties_database')]",
+					"encrypt": "mandatory",
+					"trustServerCertificate": false,
+					"authenticationType": "SQL",
+					"userName": "[parameters('ls_sqlserver_properties_typeProperties_userName')]",
+					"password": {
+						"type": "SecureString",
+						"value": "[parameters('ls_sqlserver_password')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_synapse')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"server": "[parameters('ls_synapse_properties_typeProperties_server')]",
+					"database": "[parameters('ls_synapse_properties_typeProperties_database')]",
+					"encrypt": "mandatory",
+					"trustServerCertificate": false,
+					"authenticationType": "SQL",
+					"userName": "[parameters('ls_synapse_properties_typeProperties_userName')]",
+					"password": {
+						"type": "SecureString",
+						"value": "[parameters('ls_synapse_password')]"
+					}
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}

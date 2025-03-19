@@ -1,0 +1,154 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "customer-360-ADF"
+		},
+		"ls_sqldatabase_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'ls_sqldatabase'"
+		},
+		"ls_sqlserver_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'ls_sqlserver'"
+		},
+		"ls_synapse_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'ls_synapse'"
+		},
+		"ls_backenddataadls_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://backenddataadls.dfs.core.windows.net/"
+		},
+		"ls_backenddataadls_properties_typeProperties_tenant": {
+			"type": "string",
+			"defaultValue": "ff05faeb-f1fd-4af8-9f9f-5541837df902"
+		},
+		"ls_backenddataadls_properties_typeProperties_servicePrincipalId": {
+			"type": "string",
+			"defaultValue": "ca2df203-87d1-473d-aad5-0f59b60dbf81"
+		},
+		"ls_keyvault_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://customer-360-key-vault.vault.azure.net/"
+		},
+		"ls_sqldatabase_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "customer-360.database.windows.net"
+		},
+		"ls_sqldatabase_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "customer_db_golden"
+		},
+		"ls_sqldatabase_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "arun"
+		},
+		"ls_sqlserver_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "customer-360.database.windows.net"
+		},
+		"ls_sqlserver_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "customer_db_golden"
+		},
+		"ls_sqlserver_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "arun"
+		},
+		"ls_synapse_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "customer-360-synapse.sql.azuresynapse.net"
+		},
+		"ls_synapse_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "cus_db_curated"
+		},
+		"ls_synapse_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "arun"
+		},
+		"containerUri": {
+			"type": "string",
+			"metadata": "URI to storage account containing linked ARM templates"
+		},
+		"containerSasToken": {
+			"type": "string",
+			"metadata": "Sas token to storage account containing linked ARM templates"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "customer-360-ADF_ArmTemplate_0",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_0.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"ls_sqldatabase_password": {
+						"value": "[parameters('ls_sqldatabase_password')]"
+					},
+					"ls_sqlserver_password": {
+						"value": "[parameters('ls_sqlserver_password')]"
+					},
+					"ls_synapse_password": {
+						"value": "[parameters('ls_synapse_password')]"
+					},
+					"ls_keyvault_properties_typeProperties_baseUrl": {
+						"value": "[parameters('ls_keyvault_properties_typeProperties_baseUrl')]"
+					},
+					"ls_sqldatabase_properties_typeProperties_server": {
+						"value": "[parameters('ls_sqldatabase_properties_typeProperties_server')]"
+					},
+					"ls_sqldatabase_properties_typeProperties_database": {
+						"value": "[parameters('ls_sqldatabase_properties_typeProperties_database')]"
+					},
+					"ls_sqldatabase_properties_typeProperties_userName": {
+						"value": "[parameters('ls_sqldatabase_properties_typeProperties_userName')]"
+					},
+					"ls_sqlserver_properties_typeProperties_server": {
+						"value": "[parameters('ls_sqlserver_properties_typeProperties_server')]"
+					},
+					"ls_sqlserver_properties_typeProperties_database": {
+						"value": "[parameters('ls_sqlserver_properties_typeProperties_database')]"
+					},
+					"ls_sqlserver_properties_typeProperties_userName": {
+						"value": "[parameters('ls_sqlserver_properties_typeProperties_userName')]"
+					},
+					"ls_synapse_properties_typeProperties_server": {
+						"value": "[parameters('ls_synapse_properties_typeProperties_server')]"
+					},
+					"ls_synapse_properties_typeProperties_database": {
+						"value": "[parameters('ls_synapse_properties_typeProperties_database')]"
+					},
+					"ls_synapse_properties_typeProperties_userName": {
+						"value": "[parameters('ls_synapse_properties_typeProperties_userName')]"
+					},
+					"ls_backenddataadls_properties_typeProperties_url": {
+						"value": "[parameters('ls_backenddataadls_properties_typeProperties_url')]"
+					},
+					"ls_backenddataadls_properties_typeProperties_tenant": {
+						"value": "[parameters('ls_backenddataadls_properties_typeProperties_tenant')]"
+					},
+					"ls_backenddataadls_properties_typeProperties_servicePrincipalId": {
+						"value": "[parameters('ls_backenddataadls_properties_typeProperties_servicePrincipalId')]"
+					}
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}

@@ -1,0 +1,57 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "customer-360-ADF"
+		},
+		"ls_sqldatabase_password": {
+			"value": ""
+		},
+		"ls_sqlserver_password": {
+			"value": ""
+		},
+		"ls_synapse_password": {
+			"value": ""
+		},
+		"ls_backenddataadls_properties_typeProperties_url": {
+			"value": "https://backenddataadls.dfs.core.windows.net/"
+		},
+		"ls_backenddataadls_properties_typeProperties_tenant": {
+			"value": "ff05faeb-f1fd-4af8-9f9f-5541837df902"
+		},
+		"ls_backenddataadls_properties_typeProperties_servicePrincipalId": {
+			"value": "ca2df203-87d1-473d-aad5-0f59b60dbf81"
+		},
+		"ls_keyvault_properties_typeProperties_baseUrl": {
+			"value": "https://customer-360-key-vault.vault.azure.net/"
+		},
+		"ls_sqldatabase_properties_typeProperties_server": {
+			"value": "customer-360.database.windows.net"
+		},
+		"ls_sqldatabase_properties_typeProperties_database": {
+			"value": "customer_db_golden"
+		},
+		"ls_sqldatabase_properties_typeProperties_userName": {
+			"value": "arun"
+		},
+		"ls_sqlserver_properties_typeProperties_server": {
+			"value": "customer-360.database.windows.net"
+		},
+		"ls_sqlserver_properties_typeProperties_database": {
+			"value": "customer_db_golden"
+		},
+		"ls_sqlserver_properties_typeProperties_userName": {
+			"value": "arun"
+		},
+		"ls_synapse_properties_typeProperties_server": {
+			"value": "customer-360-synapse.sql.azuresynapse.net"
+		},
+		"ls_synapse_properties_typeProperties_database": {
+			"value": "cus_db_curated"
+		},
+		"ls_synapse_properties_typeProperties_userName": {
+			"value": "arun"
+		}
+	}
+}
