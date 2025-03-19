@@ -1,0 +1,22 @@
+{
+	"name": "ls_backenddataadls",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://backenddataadls.dfs.core.windows.net/",
+			"tenant": "ff05faeb-f1fd-4af8-9f9f-5541837df902",
+			"servicePrincipalId": "ca2df203-87d1-473d-aad5-0f59b60dbf81",
+			"servicePrincipalCredentialType": "ServicePrincipalKey",
+			"servicePrincipalCredential": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "ls_keyvault",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "cus-360-sp"
+			}
+		}
+	}
+}

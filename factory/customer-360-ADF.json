@@ -1,0 +1,9 @@
+{
+	"name": "customer-360-ADF",
+	"location": "canadacentral",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "d52cf568-f03c-45de-8b69-7f063aef89ea",
+		"tenantId": "ff05faeb-f1fd-4af8-9f9f-5541837df902"
+	}
+}

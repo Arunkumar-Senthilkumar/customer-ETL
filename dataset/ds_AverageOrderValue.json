@@ -1,0 +1,41 @@
+{
+	"name": "ds_AverageOrderValue",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_sqldatabase",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "ProductID",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "ProductName",
+				"type": "varchar"
+			},
+			{
+				"name": "ProductCategory",
+				"type": "varchar"
+			},
+			{
+				"name": "StoreLocation",
+				"type": "varchar"
+			},
+			{
+				"name": "AverageOrderValue",
+				"type": "decimal",
+				"precision": 10,
+				"scale": 2
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "AverageOrderValue"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

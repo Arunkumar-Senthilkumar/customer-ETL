@@ -1,0 +1,464 @@
+{
+	"name": "pipeline1",
+	"properties": {
+		"activities": [
+			{
+				"name": "Data Cleaning",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[datacleaning_act]"
+				},
+				"linkedServiceName": {
+					"referenceName": "ls_synapse",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "AverageOrderValue",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Data Cleaning",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": "-- Table 1: Average Order Value (AOV)\nSELECT \n    p.ProductID,\n    p.Name AS ProductName,\n    p.Category AS ProductCategory,\n    s.Location AS StoreLocation,\n    SUM(ot.Amount) / COUNT(ot.OrderID) AS AverageOrderValue\nFROM \n    OnlineTransactions ot\nJOIN \n    Products p ON ot.ProductID = p.ProductID\nLEFT JOIN\n    InStoreTransactions ist ON ot.CustomerID = ist.CustomerID \nLEFT JOIN\n    Stores s ON ist.StoreID = s.StoreID \nGROUP BY \n    p.ProductID, p.Name, p.Category, s.Location;",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "upsert",
+						"upsertSettings": {
+							"useTempDB": true,
+							"keys": [
+								"ProductID"
+							]
+						},
+						"sqlWriterUseTableLock": false,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "ProductID",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "ProductID",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "ProductName",
+									"type": "String",
+									"physicalType": "varchar"
+								},
+								"sink": {
+									"name": "ProductName",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "ProductCategory",
+									"type": "String",
+									"physicalType": "varchar"
+								},
+								"sink": {
+									"name": "ProductCategory",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "StoreLocation",
+									"type": "String",
+									"physicalType": "varchar"
+								},
+								"sink": {
+									"name": "StoreLocation",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "AverageOrderValue",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 6,
+									"precision": 38
+								},
+								"sink": {
+									"name": "AverageOrderValue",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 10
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_cus_db_curated",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_AverageOrderValue",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "CustomerSegmentation",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "AverageOrderValue",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": "WITH CustomerSpend AS (\n    SELECT \n        c.CustomerID,\n        SUM(ot.Amount) AS TotalSpend,\n        COUNT(DISTINCT ot.OrderID) AS PurchaseFrequency,\n        la.TierLevel\n    FROM \n        Customers c\n    JOIN \n        OnlineTransactions ot ON c.CustomerID = ot.CustomerID\n    LEFT JOIN \n        LoyaltyAccounts la ON c.CustomerID = la.CustomerID\n    GROUP BY \n        c.CustomerID, la.TierLevel\n),\nCustomerNTile AS (\n    SELECT \n        cs.CustomerID,\n        cs.TotalSpend,\n        cs.PurchaseFrequency,\n        cs.TierLevel,\n        -- Create 10 percentiles for TotalSpend\n        NTILE(10) OVER (ORDER BY cs.TotalSpend DESC) AS SpendQuartile\n    FROM \n        CustomerSpend cs\n)\nSELECT \n    CustomerID,\n    CASE \n        -- High-Value Customers: Top 10% spenders\n        WHEN SpendQuartile = 1 THEN 'High-Value Customer' \n        -- One-Time Buyers: Only one purchase\n        WHEN PurchaseFrequency = 1 THEN 'One-Time Buyer'\n        -- Loyalty Champions: Customers in 'Champion' tier\n        WHEN TierLevel = 'Champion' THEN 'Loyalty Champion'\n        -- Others\n        ELSE 'Other'\n    END AS CustomerSegment\nFROM \n    CustomerNTile;",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "upsert",
+						"upsertSettings": {
+							"useTempDB": true,
+							"keys": [
+								"CustomerID"
+							]
+						},
+						"sqlWriterUseTableLock": false,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "CustomerID",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "CustomerID",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "CustomerSegment",
+									"type": "String",
+									"physicalType": "varchar"
+								},
+								"sink": {
+									"name": "CustomerSegment",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_cus_db_curated",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_CustomerSegmentation",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "PeakDaysAndTimes",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "CustomerSegmentation",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": "SELECT\n    DayOfWeek,\n    HourOfDay,\n    SUM(CASE WHEN TransactionType = 'Online' THEN TotalTransactions ELSE 0 END) AS TotalOnlineTransactions,\n    SUM(CASE WHEN TransactionType = 'InStore' THEN TotalTransactions ELSE 0 END) AS TotalInStoreTransactions\nFROM (\n    -- Online Transactions\n    SELECT\n        DATEPART(WEEKDAY, ot.DateTime) AS DayOfWeek,  -- Numeric representation of the day\n        DATEPART(HOUR, ot.DateTime) AS HourOfDay,\n        COUNT(ot.OrderID) AS TotalTransactions,\n        'Online' AS TransactionType\n    FROM \n        OnlineTransactions ot\n    GROUP BY\n        DATEPART(WEEKDAY, ot.DateTime),\n        DATEPART(HOUR, ot.DateTime)\n    \n    UNION ALL\n    \n    -- In-Store Transactions\n    SELECT\n        DATEPART(WEEKDAY, ist.DateTime) AS DayOfWeek,  -- Numeric representation of the day\n        DATEPART(HOUR, ist.DateTime) AS HourOfDay,\n        COUNT(ist.TransactionID) AS TotalTransactions,\n        'InStore' AS TransactionType\n    FROM \n        InStoreTransactions ist\n    GROUP BY\n        DATEPART(WEEKDAY, ist.DateTime),\n        DATEPART(HOUR, ist.DateTime)\n) AS CombinedTransactions\nGROUP BY\n    DayOfWeek, HourOfDay\nORDER BY\n    DayOfWeek,  -- Order by the numeric day of the week (1 for Monday, 7 for Sunday)\n    HourOfDay;",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "DayOfWeek",
+									"type": "String",
+									"physicalType": "nvarchar"
+								},
+								"sink": {
+									"name": "DayOfWeek",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "HourOfDay",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "HourOfDay",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "TotalOnlineTransactions",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "TotalOnlineOrders",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "TotalInStoreTransactions",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "TotalInStoreTransactions",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_cus_db_curated",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_PeakDaysAndTimes",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "AgentInteractionsAndResolutionRates",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "PeakDaysAndTimes",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"sqlReaderQuery": "SELECT \n    ag.AgentID,\n    ag.Name AS AgentName,\n    COUNT(csi.InteractionID) AS TotalInteractions,\n    SUM(CASE WHEN csi.ResolutionStatus = 'Resolved' THEN 1 ELSE 0 END) * 1.0 / COUNT(csi.InteractionID) AS ResolutionSuccessRate\nFROM \n    Agents ag\nJOIN \n    CustomerServiceInteractions csi ON ag.AgentID = csi.AgentID\nGROUP BY \n    ag.AgentID, ag.Name;",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "upsert",
+						"upsertSettings": {
+							"useTempDB": true,
+							"keys": [
+								"AgentID"
+							]
+						},
+						"sqlWriterUseTableLock": false,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "AgentID",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "AgentID",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "AgentName",
+									"type": "String",
+									"physicalType": "varchar"
+								},
+								"sink": {
+									"name": "AgentName",
+									"type": "String",
+									"physicalType": "varchar"
+								}
+							},
+							{
+								"source": {
+									"name": "TotalInteractions",
+									"type": "Int32",
+									"physicalType": "int"
+								},
+								"sink": {
+									"name": "TotalInteractions",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "ResolutionSuccessRate",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 12,
+									"precision": 24
+								},
+								"sink": {
+									"name": "ResolutionSuccessRate",
+									"type": "Decimal",
+									"physicalType": "decimal",
+									"scale": 2,
+									"precision": 5
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_cus_db_curated",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_AgentInteractionsAndResolutionRates",
+						"type": "DatasetReference"
+					}
+				]
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2025-03-19T01:39:47Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

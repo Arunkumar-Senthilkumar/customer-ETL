@@ -1,0 +1,38 @@
+{
+	"name": "ds_AgentInteractionsAndResolutionRates",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_sqldatabase",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "AgentID",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "AgentName",
+				"type": "varchar"
+			},
+			{
+				"name": "TotalInteractions",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "ResolutionSuccessRate",
+				"type": "decimal",
+				"precision": 5,
+				"scale": 2
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "AgentInteractionsAndResolutionRates"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
