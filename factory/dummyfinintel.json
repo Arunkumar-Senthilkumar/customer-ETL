@@ -1,0 +1,9 @@
+{
+	"name": "dummyfinintel",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "3cad6cee-1ed4-4ac1-8693-dbca0fb6d4f1",
+		"tenantId": "49bba7a4-424b-4070-a70e-886e9dd7caef"
+	}
+}
